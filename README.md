@@ -1,17 +1,33 @@
-## 🧠 Environment Specification
+---
+title: SQL Repair Environment
+emoji: 🤖
+colorFrom: blue
+colorTo: green
+sdk: docker
+pinned: false
+---
 
-### Observation
-- broken_query: incorrect SQL query
-- db_schema: database schema
-- difficulty: easy / medium / hard
-- result: execution output
-- error: error message
+# 🎮 AI SQL Repair Environment
 
-### Action
-- query: corrected SQL query
+An AI training environment where an agent repairs incorrect SQL queries and is scored based on correctness.
 
-### Reward
-- 1.0 → exact match
-- 0.8 → correct output
-- 0.3 → partial fix
-- 0.0 → incorrect
+## 🚀 Features
+- OpenEnv compliant (step/reset/state)
+- Easy → Medium → Hard tasks
+- Reward-based scoring
+- SQLite execution
+- Hugging Face deployment
+
+## ▶️ Example Output
+
+🎯 Episode 1 | Difficulty: easy  
+🧩 Broken Query:  
+SELECT name age FROM users  
+
+🤖 AI Fixed Query:  
+SELECT name, age FROM users  
+
+🏆 Reward: 1.0  
+
+## 🧠 Model Used
+google/flan-t5-base
