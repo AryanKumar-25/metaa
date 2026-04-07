@@ -4,7 +4,7 @@ import random
 import os
 
 from transformers import pipeline
-from google import genai
+from groq import Groq
 
 from env.environment import SQLRepairEnv
 from env.models import Action
@@ -15,9 +15,9 @@ from env.models import Action
 random.seed(42)
 
 # -----------------------
-# 🔥 GEMINI CLIENT (NEW SDK ONLY)
+# 🔥 GROQ CLIENT
 # -----------------------
-client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
 # -----------------------
 # 🔥 LOCAL MODEL (FALLBACK)
@@ -28,9 +28,9 @@ generator = pipeline(
 )
 
 # -----------------------
-# 🔥 GEMINI FUNCTION
+# 🔥 GROQ FUNCTION
 # -----------------------
-def fix_query_with_gemini(broken_query, schema):
+def fix_query_with_groq(broken_query, schema):
     prompt = f"""
 Fix the SQL query. Only return valid SQL.
 
@@ -43,15 +43,14 @@ Broken Query:
 Correct SQL:
 """
 
-    response = client.models.generate_content(
-        model="gemini-1.5-flash",
-        contents=prompt
+    response = client.chat.completions.create(
+        model="llama-3.1-8b-instant",   # ✅ latest working model
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0
     )
 
-    output = response.text.strip()
-    output = output.split("\n")[0]
-
-    return output
+    output = response.choices[0].message.content.strip()
+    return output.split("\n")[0]
 
 
 # -----------------------
@@ -74,9 +73,7 @@ Correct SQL:
     output = result[0]["generated_text"]
 
     fixed_query = output.split("Correct SQL:")[-1].strip()
-    fixed_query = fixed_query.split("\n")[0]
-
-    return fixed_query
+    return fixed_query.split("\n")[0]
 
 
 # -----------------------
@@ -84,36 +81,54 @@ Correct SQL:
 # -----------------------
 def fix_query(broken_query, schema):
     try:
-        print("🧠 Using Gemini...")
-        fixed_query = fix_query_with_gemini(broken_query, schema)
+        print("🧠 Using Groq...")
+        fixed_query = fix_query_with_groq(broken_query, schema)
+
+        if not fixed_query or len(fixed_query) < 5:
+            raise Exception("Bad Groq output")
+
     except Exception as e:
-        print("⚠️ Gemini failed, using fallback:", e)
+        print("⚠️ Groq failed, using fallback:", e)
         fixed_query = fix_query_with_local(broken_query, schema)
 
     # -----------------------
-    # 🔥 RULE FIXES (VERY IMPORTANT)
+    # 🔥 RULE FIXES (IMPORTANT)
     # -----------------------
 
     # Fix FORM typo
     fixed_query = fixed_query.replace("FORM", "FROM")
 
-    # Fix incomplete WHERE
+    # Fix missing comma
+    if "SELECT name age" in fixed_query:
+        fixed_query = fixed_query.replace("name age", "name, age")
+
+    # Fix incomplete WHERE >
     if fixed_query.strip().endswith(">"):
         fixed_query += " 18"
 
-    # Fix incomplete ORDER
+    # Fix ORDER
     if fixed_query.strip().endswith("ORDER"):
         fixed_query += " BY age"
+
+    # Ensure FROM exists
+    if "FROM" not in fixed_query.upper():
+        fixed_query = broken_query.replace("FORM", "FROM")
+
+    # -----------------------
+    # 🔥 STRONG SAFETY FIX
+    # -----------------------
+
+    if "WHERE age >" in fixed_query and fixed_query.strip().endswith(">"):
+        fixed_query += " 18"
 
     # Preserve SELECT *
     if "*" in broken_query and "*" not in fixed_query:
         fixed_query = "SELECT * FROM users"
 
-    # Ensure valid SQL
-    if "SELECT" not in fixed_query.upper() or "FROM" not in fixed_query.upper():
-        fixed_query = broken_query.replace("FORM", "FROM")
+    # Limit length
+    fixed_query = fixed_query[:200]
 
-    return fixed_query[:200]
+    return fixed_query
 
 
 # -----------------------

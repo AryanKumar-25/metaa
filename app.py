@@ -3,8 +3,7 @@ import asyncio
 
 from env.environment import SQLRepairEnv
 from env.models import Action
-from inference import fix_query_with_ai
-
+from inference import fix_query   # ✅ FIXED
 
 # -----------------------
 # 🔥 MAIN DEMO FUNCTION
@@ -22,8 +21,8 @@ def run_demo():
             broken = obs.broken_query
             schema = obs.db_schema
 
-            # 🤖 AI fix
-            fixed = fix_query_with_ai(broken, schema)
+            # 🤖 FIXED FUNCTION CALL
+            fixed = fix_query(broken, schema)   # ✅ FIXED
 
             # Run environment step
             result = await env.step(Action(query=fixed))
@@ -39,7 +38,7 @@ def run_demo():
             return broken, fixed, str(output), reward
 
         except Exception as e:
-            print("ERROR:", str(e))  # shows in Logs tab
+            print("ERROR:", str(e))
             return "ERROR", "ERROR", str(e), 0.0
 
     return asyncio.run(inner())
@@ -50,7 +49,7 @@ def run_demo():
 with gr.Blocks() as demo:
     gr.Markdown("""
     # 🧠 AI SQL Repair Environment
-    This system takes a broken SQL query, fixes it using AI, 
+    This system takes a broken SQL query, fixes it using AI,
     executes it, and assigns a reward based on correctness.
     """)
 
@@ -63,13 +62,12 @@ with gr.Blocks() as demo:
 
     btn.click(
         fn=run_demo,
-        inputs=[],   # ✅ IMPORTANT FIX
+        inputs=[],
         outputs=[broken, fixed, result, reward]
     )
 
-
 # -----------------------
-# 🔥 LAUNCH (HF READY)
+# 🔥 LAUNCH
 # -----------------------
 demo.queue().launch(
     server_name="0.0.0.0",
