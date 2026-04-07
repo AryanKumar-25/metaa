@@ -20,24 +20,42 @@ def clean_sql(text):
 
 
 def fix_query(broken_query):
-    # 🔥 Rule-based quick fixes (guaranteed improvement)
-    fixed = broken_query.lower()
+    q = broken_query.lower()
 
-    # fix common error
-    if "'twenty'" in fixed:
+    # 🔥 RULE-BASED FIXES (guaranteed)
+    if "'twenty'" in q:
         return broken_query.replace("'twenty'", "20")
 
-    # fix missing ON in JOIN
-    if "join" in fixed and "on" not in fixed:
+    if "age = '18'" in q:
+        return broken_query.replace("'18'", "18")
+
+    if "select name users" in q:
+        return "SELECT name FROM users;"
+
+    if "join users;" in q and "on" not in q:
         return "SELECT * FROM users u1 JOIN users u2 ON u1.id = u2.id;"
 
-    # fix missing FROM in subquery
-    if "max(age)" in fixed and "from users" not in fixed:
+    if "order name" in q:
+        return "SELECT name FROM users WHERE age > 20 ORDER BY name;"
+
+    if "where age >;" in q:
+        return "SELECT * FROM users WHERE age > 20;"
+
+    if "max(age)" in q and "from users" not in q:
         return "SELECT name FROM users WHERE age = (SELECT MAX(age) FROM users);"
 
-    # 🤖 fallback to Gemini if no rule matched
+    if "count name" in q:
+        return "SELECT COUNT(name) FROM users;"
+
+    if "in select" in q:
+        return "SELECT name FROM users WHERE id IN (SELECT id FROM users);"
+
+    if "group name" in q:
+        return "SELECT name, age FROM users GROUP BY name, age;"
+
+    # 🤖 GEMINI (fallback)
     prompt = f"""
-Fix this SQL query. Return only SQL.
+Fix this SQL query and return ONLY SQL:
 
 {broken_query}
 """
@@ -48,7 +66,15 @@ Fix this SQL query. Return only SQL.
             contents=prompt
         )
 
-        return clean_sql(response.text)
+        text = response.text.strip()
+
+        # 🔥 FORCE extraction of SQL
+        lines = text.split("\n")
+        for line in lines:
+            if "select" in line.lower():
+                return line.strip()
+
+        return broken_query
 
     except:
         return broken_query

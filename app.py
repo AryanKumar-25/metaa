@@ -4,14 +4,53 @@ from env.environment import SQLRepairEnv
 from env.models import Action
 from inference import fix_query
 
+env = SQLRepairEnv()
+current_obs = None
+score_total = 0
+attempts = 0
 
+
+# -----------------------
+# 🎯 Difficulty Color
+# -----------------------
+def format_difficulty(diff):
+    if diff == "easy":
+        return f"🟢 EASY"
+    elif diff == "medium":
+        return f"🟡 MEDIUM"
+    else:
+        return f"🔴 HARD"
+
+
+# -----------------------
+# 🔄 Next Question
+# -----------------------
+def next_question():
+    global current_obs
+
+    current_obs = env.reset()
+
+    return (
+        f"{current_obs.broken_query}",
+        format_difficulty(current_obs.difficulty),
+        "",
+        "",
+        0.0,
+        f"{score_total}/{attempts}" if attempts else "0/0"
+    )
+
+
+# -----------------------
+# 🚀 Run AI Fix
+# -----------------------
 def run_demo():
-    env = SQLRepairEnv()
+    global current_obs, score_total, attempts
 
-    obs = env.reset()
+    if current_obs is None:
+        current_obs = env.reset()
 
-    broken = obs.broken_query
-    difficulty = obs.difficulty
+    broken = current_obs.broken_query
+    difficulty = current_obs.difficulty
 
     fixed = fix_query(broken)
 
@@ -21,29 +60,54 @@ def run_demo():
 
     output = observation.result if observation.result else observation.error
 
+    # update score
+    attempts += 1
+    score_total += reward
+
     return (
-        f"{broken}  (Difficulty: {difficulty})",
+        broken,
+        format_difficulty(difficulty),
         fixed,
         str(output),
-        reward
+        reward,
+        f"{round(score_total,2)}/{attempts}"
     )
 
 
-with gr.Blocks() as demo:
-    gr.Markdown("# 🧠 SQL Repair AI Agent")
+# -----------------------
+# 🎨 UI DESIGN
+# -----------------------
+with gr.Blocks(theme=gr.themes.Soft()) as demo:
 
-    btn = gr.Button("🚀 Run AI Fix")
+    gr.Markdown("""
+    # 🧠 SQL Repair AI Agent  
+    ### Fix broken SQL queries using Open AI 
+    """)
 
-    broken = gr.Textbox(label="Broken SQL")
-    fixed = gr.Textbox(label="Fixed SQL")
-    result = gr.Textbox(label="Result / Error")
-    reward = gr.Number(label="Reward")
+    with gr.Row():
+        btn_next = gr.Button("🔄 Next Question", variant="secondary")
+        btn_run = gr.Button("🚀 Run AI Fix", variant="primary")
 
-    btn.click(
+    with gr.Row():
+        difficulty = gr.Textbox(label="📊 Difficulty", interactive=False)
+        score = gr.Textbox(label="🏆 Score (Total/Attempts)", interactive=False)
+
+    broken = gr.Textbox(label="❌ Broken SQL", lines=3)
+    fixed = gr.Textbox(label="🤖 Fixed SQL", lines=3)
+    result = gr.Textbox(label="📊 Output / Error", lines=3)
+    reward = gr.Number(label="⭐ Reward (0–1)")
+
+    # Actions
+    btn_next.click(
+        fn=next_question,
+        inputs=[],
+        outputs=[broken, difficulty, fixed, result, reward, score]
+    )
+
+    btn_run.click(
         fn=run_demo,
         inputs=[],
-        outputs=[broken, fixed, result, reward]
+        outputs=[broken, difficulty, fixed, result, reward, score]
     )
-
 
 demo.launch()
