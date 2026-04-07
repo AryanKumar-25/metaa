@@ -1,21 +1,27 @@
-def normalize(query):
-    return query.lower().replace(" ", "").replace(";", "")
+import sqlite3
+
+def execute(query):
+    try:
+        conn = sqlite3.connect(":memory:")
+        cursor = conn.cursor()
+
+        cursor.execute("CREATE TABLE users(id INT, name TEXT, age INT)")
+        cursor.execute("INSERT INTO users VALUES (1, 'A', 18), (2, 'B', 25)")
+
+        cursor.execute(query)
+        return cursor.fetchall(), None
+
+    except Exception as e:
+        return None, str(e)
 
 
-def grade(predicted, expected_query, result, expected, error=None):
+def grade(predicted, expected_query, result, error):
     if error:
-        return 0.0  # syntax error
+        return 0.0
 
-    # ✅ Exact query match
-    if normalize(predicted) == normalize(expected_query):
+    exp_result, _ = execute(expected_query)
+
+    if result == exp_result:
         return 1.0
 
-    # ✅ Correct output match
-    if result == expected:
-        return 0.8
-
-    # ✅ Partial signal (structure)
-    if "select" in predicted.lower():
-        return 0.3
-
-    return 0.0
+    return 0.5

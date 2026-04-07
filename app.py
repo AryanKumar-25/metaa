@@ -1,64 +1,43 @@
 import gradio as gr
-import asyncio
 
 from env.environment import SQLRepairEnv
 from env.models import Action
-from inference import fix_query   # ✅ FIXED
+from inference import fix_query
 
-# -----------------------
-# 🔥 MAIN DEMO FUNCTION
-# -----------------------
+
 def run_demo():
-    async def inner():
-        try:
-            env = SQLRepairEnv()
+    env = SQLRepairEnv()
 
-            # Reset environment
-            state = await env.reset()
-            obs = state["observation"]
+    obs = env.reset()
 
-            # ✅ Correct object access
-            broken = obs.broken_query
-            schema = obs.db_schema
+    broken = obs.broken_query
+    difficulty = obs.difficulty
 
-            # 🤖 FIXED FUNCTION CALL
-            fixed = fix_query(broken, schema)   # ✅ FIXED
+    fixed = fix_query(broken)
 
-            # Run environment step
-            result = await env.step(Action(query=fixed))
+    observation, reward, done, _ = env.step(
+        Action(query=fixed)
+    )
 
-            # ✅ Safe extraction
-            reward = result.get("reward", 0.0)
+    output = observation.result if observation.result else observation.error
 
-            result_obs = result["observation"]
+    return (
+        f"{broken}  (Difficulty: {difficulty})",
+        fixed,
+        str(output),
+        reward
+    )
 
-            output = result_obs.result
-            error = getattr(result_obs, "error", None)
 
-            return broken, fixed, str(output), reward
-
-        except Exception as e:
-            print("ERROR:", str(e))
-            return "ERROR", "ERROR", str(e), 0.0
-
-    return asyncio.run(inner())
-
-# -----------------------
-# 🔥 UI LAYOUT
-# -----------------------
 with gr.Blocks() as demo:
-    gr.Markdown("""
-    # 🧠 AI SQL Repair Environment
-    This system takes a broken SQL query, fixes it using AI,
-    executes it, and assigns a reward based on correctness.
-    """)
+    gr.Markdown("# 🧠 SQL Repair AI Agent")
 
     btn = gr.Button("🚀 Run AI Fix")
 
-    broken = gr.Textbox(label="❌ Broken SQL")
-    fixed = gr.Textbox(label="🤖 Fixed SQL")
-    result = gr.Textbox(label="📊 Execution Result")
-    reward = gr.Number(label="🏆 Reward (0–1)")
+    broken = gr.Textbox(label="Broken SQL")
+    fixed = gr.Textbox(label="Fixed SQL")
+    result = gr.Textbox(label="Result / Error")
+    reward = gr.Number(label="Reward")
 
     btn.click(
         fn=run_demo,
@@ -66,10 +45,5 @@ with gr.Blocks() as demo:
         outputs=[broken, fixed, result, reward]
     )
 
-# -----------------------
-# 🔥 LAUNCH
-# -----------------------
-demo.queue().launch(
-    server_name="0.0.0.0",
-    server_port=7860
-)
+
+demo.launch()
